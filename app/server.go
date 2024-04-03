@@ -41,7 +41,6 @@ func main() {
 
 		os.Exit(1)
 	}
-	_, err = l.Accept()
 	defer func() {
 		err := conn.Close()
 		if err != nil {
