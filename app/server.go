@@ -16,6 +16,16 @@ const (
 	crlf         = "\r\n\r\n"
 )
 
+func handleConnection(c net.Conn) {
+	defer c.Close()
+	// Uncomment this block to pass the first stage
+	buffer := make([]byte, 1024)
+	_, err := c.Read(buffer)
+	if err != nil {
+		fmt.Println("Error reading: ", err.Error())
+	}
+	c.Write([]byte(httpProtocol + "/" + httpVersion + " " + httpStatusOK + " " + httpVersion + crlf))
+}
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -34,27 +44,14 @@ func main() {
 		}
 
 	}()
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Failed to bind to port 4221")
-		log.Println("Error accepting connection: ", err.Error())
-
-		os.Exit(1)
-	}
-	defer func() {
-		err := conn.Close()
+	for {
+		conn, err := l.Accept()
 		if err != nil {
-			log.Println("Error closing connection: ", err.Error())
-			return
+			log.Println("Error accepting connection: ", err.Error())
+			continue
 		}
 
-	}()
-	okResponse := httpProtocol + "/" + httpVersion + " " + httpStatusOK + " " + httpVersion + crlf
-	_, err = conn.Write([]byte(okResponse))
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		log.Println("Error writing response: ", err.Error())
-		os.Exit(1)
-
+		go handleConnection(conn)
 	}
+
 }
