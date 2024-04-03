@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	// Uncomment this block to pass the first stage
 	"net"
 	"os"
 )
