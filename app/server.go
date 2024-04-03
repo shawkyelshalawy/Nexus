@@ -2,9 +2,18 @@ package main
 
 import (
 	"fmt"
+	"log"
+
 	// Uncomment this block to pass the first stage
 	"net"
 	"os"
+)
+
+const (
+	httpProtocol = "http"
+	httpVersion  = "1.1"
+	httpStatusOK = "200 OK"
+	crlf         = "\r\n\r\n"
 )
 
 func main() {
@@ -18,10 +27,31 @@ func main() {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
-
-	_, err = l.Accept()
+	defer func() {
+		err := l.Close()
+		if err != nil {
+			log.Println("Error closing listener: ", err.Error())
+			return
+		}
+	}()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Println("Error closing connection: ", err.Error())
+			return
+		}
+	}()
+
+	okResponse := httpProtocol + "/" + httpVersion + " " + httpStatusOK + " " + httpVersion + crlf
+	_, err = conn.Write([]byte(okResponse))
+	if err != nil {
+		fmt.Println("Failed to write to connection", err.Error())
+		os.Exit(1)
+	}
+
 }
