@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	httpProtocol = "http"
+	httpProtocol = "HTTP"
 	httpVersion  = "1.1"
 	httpStatusOK = "200 OK"
 	crlf         = "\r\n\r\n"
