@@ -7,6 +7,7 @@ import (
 )
 
 func main() {
+	// accept concurrent connections
 	serv := http.Listen("4221")
 	req := serv.ReadRequest()
 	if req.Path == "/" {
@@ -15,8 +16,7 @@ func main() {
 		content := strings.ReplaceAll(req.Path, "/echo/", "")
 		serv.RespondWithContent(http.StatusOk, &content)
 	} else if req.Path == "/user-agent" {
-		content := req.Headers["User-Agent"]
-		serv.RespondWithContent(http.StatusOk, &content)
+		serv.HandleUserAgent()
 	} else {
 		serv.Respond(http.StatusNotFound)
 	}
