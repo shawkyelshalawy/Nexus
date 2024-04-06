@@ -92,32 +92,18 @@ func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
 }
 
 // accepting concurrent connections
-
 func Listen(port string) *HttpServer {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		fmt.Println("Failed to bind to port " + port)
 		os.Exit(1)
 	}
-
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			continue
-		}
-
-		go func(c net.Conn) {
-			http := &HttpServer{
-				conn: c,
-			}
-			http.HandleUserAgent()
-			c.Close()
-		}(conn)
+	conn, err := l.Accept()
+	if err != nil {
+		fmt.Println("Error accepting connection: ", err.Error())
+		os.Exit(1)
 	}
-}
-func (http HttpServer) HandleUserAgent() {
-	req := http.ReadRequest()
-	content := req.Headers["User-Agent"]
-	http.RespondWithContent(StatusOk, &content)
+	return &HttpServer{
+		conn: conn,
+	}
 }
