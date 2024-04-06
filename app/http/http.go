@@ -63,15 +63,14 @@ func (http HttpServer) ReadRequest() HttpRequest {
 	return ParseRequest(req)
 }
 
-func (http HttpServer) getStatusLine(status HttpStatus) string {
-	return httpProtocol + "/" + httpVersion + " " + string(status) + lf
+func (http HttpServer) getStatusLine(httpStatus HttpStatus) string {
+	return fmt.Sprintf("%s/%s %s", httpProtocol, httpVersion, httpStatus)
 }
-
-func (http HttpServer) getContentLine(content string) string {
-	return "Content-Type: text/plain" + lf +
-		"Content-Length: " + fmt.Sprint(len(content)) + lf +
-		lf +
-		content
+func (http HttpServer) getContentLines(content string) string {
+	res := fmt.Sprintf("Content-Type: text/plain%s", lf)
+	res += fmt.Sprintf("Content-Length: %d%s", len(content), lf)
+	res += fmt.Sprintf("%s%s%s", lf, content, crlf)
+	return res
 }
 func (http HttpServer) Respond(status HttpStatus) {
 	http.RespondWithContent(status, nil)
@@ -80,7 +79,7 @@ func (http HttpServer) Respond(status HttpStatus) {
 func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
 	res := http.getStatusLine(status)
 	if content != nil {
-		res += lf + http.getContentLine(*content)
+		res += lf + http.getContentLines(*content)
 	} else {
 		res += crlf
 	}
