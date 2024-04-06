@@ -14,6 +14,9 @@ func main() {
 	} else if strings.HasPrefix(req.Path, "/echo") {
 		content := strings.ReplaceAll(req.Path, "/echo/", "")
 		serv.RespondWithContent(http.StatusOk, &content)
+	} else if req.Path == "/user-agent" {
+		content := req.Headers["User-Agent"]
+		serv.RespondWithContent(http.StatusOk, &content)
 	} else {
 		serv.Respond(http.StatusNotFound)
 	}

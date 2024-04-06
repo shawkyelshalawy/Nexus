@@ -90,6 +90,7 @@ func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
 	}
 	http.conn.Close()
 }
+
 func Listen(port string) *HttpServer {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
