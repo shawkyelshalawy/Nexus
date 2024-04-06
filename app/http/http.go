@@ -24,6 +24,7 @@ const (
 	httpProtocol = "HTTP"
 	httpVersion  = "1.1"
 	crlf         = "\r\n\r\n"
+	lf           = "\n"
 )
 
 func ParseRequest(request string) (req HttpRequest) {
@@ -62,19 +63,34 @@ func (http HttpServer) ReadRequest() HttpRequest {
 	return ParseRequest(req)
 }
 
-func (http HttpServer) httpResponse(httpStatus HttpStatus) []byte {
-	return []byte(httpProtocol + "/" + httpVersion + " " + httpStatus + crlf)
+func (http HttpServer) getStatusLine(status HttpStatus) string {
+	return httpProtocol + "/" + httpVersion + " " + string(status) + lf
 }
 
+func (http HttpServer) getContentLine(content string) string {
+	return "Content-Type: text/plain" + lf +
+		"Content-Length: " + fmt.Sprint(len(content)) + lf +
+		lf +
+		content
+}
 func (http HttpServer) Respond(status HttpStatus) {
-	_, err := http.conn.Write(http.httpResponse(status))
+	http.RespondWithContent(status, nil)
+}
+
+func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
+	res := http.getStatusLine(status)
+	if content != nil {
+		res += lf + http.getContentLine(*content)
+	} else {
+		res += crlf
+	}
+	_, err := http.conn.Write([]byte(res))
 	if err != nil {
 		fmt.Println("Error writing response: ", err.Error())
 		os.Exit(1)
 	}
 	http.conn.Close()
 }
-
 func Listen(port string) *HttpServer {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {

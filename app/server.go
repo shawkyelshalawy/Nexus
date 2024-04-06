@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/codecrafters-io/http-server-starter-go/app/http"
 )
 
@@ -9,8 +11,10 @@ func main() {
 	req := serv.ReadRequest()
 	if req.Path == "/" {
 		serv.Respond(http.StatusOk)
+	} else if strings.HasPrefix(req.Path, "/echo") {
+		content := strings.ReplaceAll(req.Path, "/echo/", "")
+		serv.RespondWithContent(http.StatusOk, &content)
 	} else {
-
 		serv.Respond(http.StatusNotFound)
 	}
 }
