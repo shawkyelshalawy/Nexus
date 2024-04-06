@@ -98,12 +98,29 @@ func Listen(port string) *HttpServer {
 		fmt.Println("Failed to bind to port " + port)
 		os.Exit(1)
 	}
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
-	}
-	return &HttpServer{
-		conn: conn,
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		go func() {
+			http := &HttpServer{
+				conn: conn,
+			}
+			req := http.ReadRequest()
+			if req.Path == "/" {
+				http.Respond(StatusOk)
+			} else if strings.HasPrefix(req.Path, "/echo") {
+				content := strings.ReplaceAll(req.Path, "/echo/", "")
+				http.RespondWithContent(StatusOk, &content)
+			} else if req.Path == "/user-agent" {
+				content := req.Headers["User-Agent"]
+				http.RespondWithContent(StatusOk, &content)
+			} else {
+				http.Respond(StatusNotFound)
+			}
+		}()
+
 	}
 }
