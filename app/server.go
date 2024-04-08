@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
 
 	server := http.CreateConnection("tcp", "0.0.0.0:4221")
