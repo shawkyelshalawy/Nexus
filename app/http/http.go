@@ -2,8 +2,10 @@ package http
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -16,9 +18,17 @@ type HttpRequest struct {
 }
 type HttpStatus string
 
+var dir string
+
 const (
-	StatusOk       HttpStatus = "200 OK"
-	StatusNotFound HttpStatus = "404 Not Found"
+	StatusOk                  HttpStatus = "200 OK"
+	StatusNotFound            HttpStatus = "404 Not Found"
+	StatusInternalServerError HttpStatus = "500 Internal Server Error"
+)
+
+const (
+	textPlainContentType   = "text/plain"
+	octetStreamContentType = "application/octet-stream"
 )
 const (
 	httpProtocol = "HTTP"
@@ -91,6 +101,30 @@ func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
 	http.conn.Close()
 }
 
+func (http HttpServer) handleFileRequest(filename string) {
+	filePath := path.Join(dir, filename)
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Respond(StatusNotFound)
+		} else {
+			fmt.Println("Error opening file: ", err.Error())
+			http.Respond(StatusInternalServerError)
+		}
+		return
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		fmt.Println("Error reading file: ", err.Error())
+		http.Respond(StatusInternalServerError)
+		return
+	}
+	contentStr := string(content)
+	http.RespondWithContent(StatusOk, &contentStr)
+}
+
 // accepting concurrent connections
 func Listen(port string) *HttpServer {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
@@ -117,6 +151,9 @@ func Listen(port string) *HttpServer {
 			} else if req.Path == "/user-agent" {
 				content := req.Headers["User-Agent"]
 				http.RespondWithContent(StatusOk, &content)
+			} else if strings.HasPrefix(req.Path, "/file/") {
+				filename := strings.TrimPrefix(req.Path, "/files/")
+				http.handleFileRequest(filename)
 			} else {
 				http.Respond(StatusNotFound)
 			}
