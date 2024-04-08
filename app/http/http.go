@@ -126,7 +126,7 @@ func (http HttpServer) handleFileRequest(filename string) {
 }
 
 // accepting concurrent connections
-func Listen(port string) *HttpServer {
+func Listen(port string, dir *string) *HttpServer {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		fmt.Println("Failed to bind to port " + port)
@@ -143,6 +143,7 @@ func Listen(port string) *HttpServer {
 				conn: conn,
 			}
 			req := http.ReadRequest()
+			url := req.Path
 			if req.Path == "/" {
 				http.Respond(StatusOk)
 			} else if strings.HasPrefix(req.Path, "/echo") {
@@ -151,9 +152,21 @@ func Listen(port string) *HttpServer {
 			} else if req.Path == "/user-agent" {
 				content := req.Headers["User-Agent"]
 				http.RespondWithContent(StatusOk, &content)
-			} else if strings.HasPrefix(req.Path, "/file/") {
-				filename := strings.TrimPrefix(req.Path, "/files/")
-				http.handleFileRequest(filename)
+			} else if strings.Contains(url, "/files/") {
+				fileName := url[7:]
+				fmt.Println("file name is", fileName)
+				if dir != nil {
+					file := fmt.Sprintf("%s%s", *dir, fileName)
+					data, readFileError := os.ReadFile(file)
+					if readFileError != nil {
+						_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n\r\n"))
+					} else {
+						content := string(data[:])
+						_, err = conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length:%+v\r\n\r\n%v\r\n", len(content), content)))
+					}
+				} else {
+					_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+				}
 			} else {
 				http.Respond(StatusNotFound)
 			}
