@@ -4,19 +4,29 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"strings"
 )
+
+type Method string
+
+const (
+	GET    Method = "GET"
+	POST   Method = "POST"
+	PUT    Method = "PUT"
+	PATCH  Method = "PATCH"
+	DELETE Method = "DELETE"
+)
+
+const crlf = "\r\n"
 
 type Request struct {
 	RequestHeader
 	URL    string
-	Method string
+	Method Method
+	Body   *string
 	ctx    *ServerContext
 	conn   net.Conn
 }
-
-const crlf = "\r\n"
 
 type RequestHeader struct {
 	Header map[string]string
@@ -24,13 +34,19 @@ type RequestHeader struct {
 
 func NewRequest(conn net.Conn) *Request {
 
-	data, err := getData(conn)
-	if err != nil {
-		fmt.Println("error while reading request: ", err.Error())
-		os.Exit(1)
+	data, _ := getData(conn)
+	if len(data) == 0 {
+		return &Request{
+			URL:  string(""),
+			conn: conn,
+		}
 	}
 	headers, _ := getHeader(data)
 	method, url, err := getUrlAndMethod(data)
+	var body *string
+	if *method != string(GET) {
+		body = getBody(data)
+	}
 	if err != nil {
 		// TODO
 		fmt.Println("Error while initializing request: ", err.Error())
@@ -39,8 +55,9 @@ func NewRequest(conn net.Conn) *Request {
 	return &Request{
 		RequestHeader: *headers,
 		URL:           *url,
-		Method:        *method,
+		Method:        Method(*method),
 		conn:          conn,
+		Body:          body,
 	}
 }
 
@@ -48,7 +65,7 @@ func (r *Request) GetUrl() string {
 	return r.URL
 }
 
-func (r *Request) GetMethod() string {
+func (r *Request) GetMethod() Method {
 	return r.Method
 }
 
@@ -66,7 +83,7 @@ func getHeader(data []byte) (*RequestHeader, error) {
 	headers := &RequestHeader{
 		Header: map[string]string{},
 	}
-	if len(requestSplit) == 3 {
+	if len(requestSplit) <= 3 {
 		return headers, nil
 	}
 
@@ -99,4 +116,15 @@ func getData(conn net.Conn) ([]byte, error) {
 		return nil, err
 	}
 	return buffer, nil
+}
+
+func getBody(data []byte) *string {
+	var body string
+	req := string(data[:])
+	requestSplit := strings.Split(req, crlf)
+	if len(requestSplit) >= 3 {
+		body = requestSplit[len(requestSplit)-1]
+		body = strings.Trim(body, "\x00 ")
+	}
+	return &body
 }

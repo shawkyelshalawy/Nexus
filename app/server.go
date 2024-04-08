@@ -30,37 +30,62 @@ func main() {
 	}
 }
 
-func processRequest(request *http.Request, dir *string) error {
-	url := request.GetUrl()
-	conn := request.GetConnection()
+func processRequest(req *http.Request, dir *string) error {
+	url := req.GetUrl()
+	conn := req.GetConnection()
 	var err error
+	res := http.NewResponse(conn)
+
 	if url == "/" {
-		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		res.Ok()
+		return nil
 	} else if strings.Contains(url, "/echo/") {
 		content := (url)[6:]
-		fmt.Println("Content is ", content)
-		_, err = conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:%+v\r\n\r\n%v\r\n", len(content), content)))
+		res.WriteHeader("Content-Type", "text/plain")
+		res.SendWithBody(http.StatusOk, &content)
 	} else if url == "/user-agent" {
-		content := request.Header["User-Agent"]
-		_, err = conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length:%+v\r\n\r\n%v\r\n", len(content), content)))
+		content := req.Header["User-Agent"]
+		res.WriteHeader("Content-Type", "text/plain")
+		res.SendWithBody(http.StatusOk, &content)
 	} else if strings.Contains(url, "/files/") {
 		fileName := url[7:]
-		fmt.Println("file name is", fileName)
 		if dir != nil {
 			file := fmt.Sprintf("%s%s", *dir, fileName)
-			data, readFileError := os.ReadFile(file)
-			if readFileError != nil {
-				_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n\r\n"))
-			} else {
-				content := string(data[:])
-				_, err = conn.Write([]byte(fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length:%+v\r\n\r\n%v\r\n", len(content), content)))
+			if req.Method == http.GET {
+				data, readFileError := os.ReadFile(file)
+				if readFileError != nil {
+					res := http.NewResponse(conn)
+					res.NotFound()
+				} else {
+					content := string(data[:])
+					res.WriteHeader("Content-Type", "application/octet-stream")
+					res.SendWithBody(http.StatusOk, &content)
+				}
+			} else if req.Method == http.POST {
+				if req.Body == nil {
+					res.BadRequest()
+					return nil
+				}
+				f, err := os.Create(file)
+				if err != nil {
+					res.ServerError()
+					return err
+				}
+				_, err = f.WriteString(*req.Body)
+				if err != nil {
+					res.ServerError()
+					return err
+				}
+				res.Status = http.StatusCreated
+				res.Send()
 			}
+
 		} else {
-			_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+			res.NotFound()
 		}
 
 	} else {
-		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		res.NotFound()
 	}
 	return err
 }
