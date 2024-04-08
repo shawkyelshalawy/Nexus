@@ -2,14 +2,12 @@ package http
 
 import (
 	"fmt"
-	"io"
 	"net"
 	"os"
-	"path"
 	"strings"
 )
 
-type HttpRequest struct {
+type Request struct {
 	Method   string
 	Path     string
 	Protocol string
@@ -17,8 +15,6 @@ type HttpRequest struct {
 	Body     string
 }
 type HttpStatus string
-
-var dir string
 
 const (
 	StatusOk                  HttpStatus = "200 OK"
@@ -37,13 +33,13 @@ const (
 	lf           = "\n"
 )
 
-func ParseRequest(request string) (req HttpRequest) {
+func ParseRequest(request string) (req Request) {
 	reqDetails := strings.Split(request, "\r\n")
-	staus := strings.Split(reqDetails[0], " ")
-	req = HttpRequest{
-		Method:   staus[0],
-		Path:     staus[1],
-		Protocol: staus[2],
+	stat := strings.Split(reqDetails[0], " ")
+	req = Request{
+		Method:   stat[0],
+		Path:     stat[1],
+		Protocol: stat[2],
 	}
 	req.Headers = make(map[string]string)
 	for i := 1; i < len(reqDetails); i++ {
@@ -57,11 +53,11 @@ func ParseRequest(request string) (req HttpRequest) {
 	return
 }
 
-type HttpServer struct {
+type Server struct {
 	conn net.Conn
 }
 
-func (http HttpServer) ReadRequest() HttpRequest {
+func (http Server) ReadRequest() Request {
 	buf := make([]byte, 4096)
 	content, err := http.conn.Read(buf)
 	if err != nil {
@@ -73,23 +69,20 @@ func (http HttpServer) ReadRequest() HttpRequest {
 	return ParseRequest(req)
 }
 
-func (r *HttpRequest) GetUrl() string {
-	return r.Path
-}
-func (http HttpServer) getStatusLine(httpStatus HttpStatus) string {
+func (http Server) getStatusLine(httpStatus HttpStatus) string {
 	return fmt.Sprintf("%s/%s %s", httpProtocol, httpVersion, httpStatus)
 }
-func (http HttpServer) getContentLines(content string) string {
-	res := fmt.Sprintf("Content-Type: text/plain%s", lf)
+func (http Server) getContentLines(content string) string {
+	res := fmt.Sprintf("Content-Type:%s%s", textPlainContentType, lf)
 	res += fmt.Sprintf("Content-Length: %d%s", len(content), lf)
 	res += fmt.Sprintf("%s%s%s", lf, content, crlf)
 	return res
 }
-func (http HttpServer) Respond(status HttpStatus) {
+func (http Server) Respond(status HttpStatus) {
 	http.RespondWithContent(status, nil)
 }
 
-func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
+func (http Server) RespondWithContent(status HttpStatus, content *string) {
 	res := http.getStatusLine(status)
 	if content != nil {
 		res += lf + http.getContentLines(*content)
@@ -104,32 +97,8 @@ func (http HttpServer) RespondWithContent(status HttpStatus, content *string) {
 	http.conn.Close()
 }
 
-func (http HttpServer) handleFileRequest(filename string) {
-	filePath := path.Join(dir, filename)
-	file, err := os.Open(filePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			http.Respond(StatusNotFound)
-		} else {
-			fmt.Println("Error opening file: ", err.Error())
-			http.Respond(StatusInternalServerError)
-		}
-		return
-	}
-	defer file.Close()
-
-	content, err := io.ReadAll(file)
-	if err != nil {
-		fmt.Println("Error reading file: ", err.Error())
-		http.Respond(StatusInternalServerError)
-		return
-	}
-	contentStr := string(content)
-	http.RespondWithContent(StatusOk, &contentStr)
-}
-
 // accepting concurrent connections
-func Listen(port string, dir *string) *HttpServer {
+func Listen(port string, dir *string) *Server {
 	l, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		fmt.Println("Failed to bind to port " + port)
@@ -142,19 +111,17 @@ func Listen(port string, dir *string) *HttpServer {
 			os.Exit(1)
 		}
 		go func() {
-			http := &HttpServer{
+			http := &Server{
 				conn: conn,
 			}
-
 			req := http.ReadRequest()
 			url := req.Path
-			fmt.Println("Request URL is", url)
-			if req.Path == "/" {
+			if url == "/" {
 				http.Respond(StatusOk)
 			} else if strings.HasPrefix(req.Path, "/echo") {
 				content := strings.ReplaceAll(req.Path, "/echo/", "")
 				http.RespondWithContent(StatusOk, &content)
-			} else if req.Path == "/user-agent" {
+			} else if url == "/user-agent" {
 				content := req.Headers["User-Agent"]
 				http.RespondWithContent(StatusOk, &content)
 			} else if strings.Contains(url, "/files/") {
@@ -172,6 +139,7 @@ func Listen(port string, dir *string) *HttpServer {
 				} else {
 					_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 				}
+
 			} else {
 				http.Respond(StatusNotFound)
 			}
