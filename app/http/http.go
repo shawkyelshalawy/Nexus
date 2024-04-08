@@ -73,6 +73,9 @@ func (http HttpServer) ReadRequest() HttpRequest {
 	return ParseRequest(req)
 }
 
+func (r *HttpRequest) GetUrl() string {
+	return r.Path
+}
 func (http HttpServer) getStatusLine(httpStatus HttpStatus) string {
 	return fmt.Sprintf("%s/%s %s", httpProtocol, httpVersion, httpStatus)
 }
@@ -142,8 +145,10 @@ func Listen(port string, dir *string) *HttpServer {
 			http := &HttpServer{
 				conn: conn,
 			}
+
 			req := http.ReadRequest()
 			url := req.Path
+			fmt.Println("Request URL is", url)
 			if req.Path == "/" {
 				http.Respond(StatusOk)
 			} else if strings.HasPrefix(req.Path, "/echo") {
